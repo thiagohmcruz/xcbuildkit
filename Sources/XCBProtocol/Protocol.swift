@@ -358,3 +358,22 @@ public struct BuildOperationEndedResponse: XCBProtocolMessage {
         ]
     }
 }
+
+public struct IndexingInfoReceivedResponse: XCBProtocolMessage {
+    public init() {}
+
+    public func encode(_: XCBEncoder) throws -> XCBResponse {
+        return [
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(95),
+            XCBRawValue.uint(19),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.string("INDEXING_INFO_RECEIVED"),
+            XCBRawValue.string("a218dfee841498f4d1c86fb12905507da6b8608e8d79fa8addd22be62fee6ac8"),
+        ]
+    }
+}

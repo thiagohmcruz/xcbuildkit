@@ -58,6 +58,12 @@ enum BasicMessageHandler {
                 if let responseData = try? message.encode(encoder) {
                      bkservice.write(responseData)
                 }
+            } else if msg is IndexingInfoRequested {
+                let encoder = XCBEncoder(input: input)
+                let message = IndexingInfoReceivedResponse()
+                if let responseData = try? message.encode(encoder) {
+                    bkservice.write(responseData)
+                }
             }
         }
         xcbbuildService.write(data)
