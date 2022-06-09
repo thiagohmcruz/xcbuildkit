@@ -91,8 +91,94 @@ public struct BuildStartRequest: XCBProtocolMessage {
     public init(input _: XCBInputStream) throws {}
 }
 
-public struct IndexingInfoRequested: XCBProtocolMessage {
+public struct BuildDescriptionTargetInfo: XCBProtocolMessage {
     public init(input _: XCBInputStream) throws {}
+}
+
+public struct IndexingInfoRequested: XCBProtocolMessage {
+    public var bytes: [UInt8] = []
+
+    public init(input fooInput: XCBInputStream) throws {
+        var minput = fooInput
+        while let next = minput.next() {
+            switch next {
+                case let .uint(aff): 
+                    bytes.append(UInt8(bitPattern: Int8(aff)))
+                // case let .string(foo):
+                //     bytes.append(UInt8(bitPattern: Int8(aff)))
+                default: 
+                    print("nothing to do")
+            }
+        }    
+    }
+    // let sessionHandle: String
+    // let responseChannel: UInt64
+    // // let request: XCBProtocol.BuildRequestMessagePayload
+    // let request: Any?
+    // let targetID: String 
+    // let filePath: String?
+    // let outputPathOnly: Bool
+
+//     public init(input fooInput: XCBInputStream) throws {
+//         var minput = fooInput
+
+// //mach-o, binary, lib, executable
+
+//         // guard let next = minput.next(),
+//             // case let .array(msgInfo) = next else {
+//             // case let .string(msgInfo) = next else {
+//             // msgInfo.count > 2 else {
+//             // fatalError("fooo222....")
+//             // throw XCBProtocolError.unexpectedInput(for: fooInput)
+//         // }
+
+//         guard let next = minput.next() else {
+//             fatalError("fooooooooooo no")
+//         }
+
+//         var result_aff: [String: Any] = [:]
+//         var counter = 0
+//         while let next = minput.next() {
+//             // switch next {
+//             //     case let .bool(aff): result_aff["foo bool(\(counter))"] = "\(aff)"
+//             //     case let .int(aff): result_aff["foo int(\(counter))"] = "\(aff)"
+//             //     case let .uint(aff): result_aff["foo uint(\(counter))"] = "\(aff)"
+//             //     case let .float(aff): result_aff["foo float(\(counter))"] = "\(aff)"
+//             //     case let .double(aff): result_aff["foo double(\(counter))"] = "\(aff)"
+//             //     case let .string(aff): result_aff["foo string(\(counter))"] = "\(aff)"
+//             //     case let .array(aff): result_aff["foo array(\(counter))"] = "\(aff)"
+//             //     case let .map(aff): result_aff["foo map(\(counter))"] = "\(aff)"
+//             //     case let .binary(aff): result_aff["foo binary(\(counter))"] = "\(aff)"
+//             //     // case let .extended(, data)
+//             //     default: fatalError("nope")
+//             // }
+//             switch next {
+//                 case let .bool(aff): result_aff["foo bool(\(counter))"] = aff.description
+//                 case let .int(aff): result_aff["foo int(\(counter))"] = aff.description
+//                 case let .uint(aff): result_aff["foo uint(\(counter))"] = aff.description
+//                 case let .float(aff): result_aff["foo float(\(counter))"] = aff.description
+//                 case let .double(aff): result_aff["foo double(\(counter))"] = aff.description
+//                 case let .string(aff): result_aff["foo string(\(counter))"] = aff.description
+//                 case let .array(aff): result_aff["foo array(\(counter))"] = aff.description
+//                 case let .map(aff): result_aff["foo map(\(counter))"] = aff.description
+//                 case let .binary(aff): result_aff["foo binary(\(counter))"] = aff.description
+//                 case let .binary(aff): result_aff["foo binary(\(counter))"] = aff.description
+//                 // case let .extended(, data)
+//                 default: fatalError("nope")
+//             }
+//             counter += 1
+//         }
+        
+//         // fatalError("result_aff: \(result_aff)")
+//         // fatalError("wot")
+
+//         // var foo_out = ""
+//         // while let foo = minput.next() {
+//         //     foo_out += "\(foo)\n"
+//         // }
+
+//         // fatalError("foo_out: \(foo_out)")
+//     }
 }
 
 /// Output "Response" messages
@@ -358,3 +444,72 @@ public struct BuildOperationEndedResponse: XCBProtocolMessage {
         ]
     }
 }
+
+public struct IndexingInfoReceivedResponse: XCBProtocolMessage {
+    let targetID: String
+    let data: Data?
+
+    public init(targetID: String = "", data: Data? = nil) {
+        self.targetID = targetID
+        self.data = data
+    }
+
+    public func encode(_: XCBEncoder) throws -> XCBResponse {
+        var foo_inputs = [XCBRawValue]()
+        if let theData = self.data {
+            foo_inputs = [XCBRawValue.string(self.targetID), XCBRawValue.binary(theData)]
+        } else {
+            foo_inputs = [XCBRawValue.string(self.targetID)]
+        }
+        
+        return [
+            XCBRawValue.uint(26),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(37),
+            XCBRawValue.uint(1),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.string("INDEXING_INFO_RECEIVED"),
+            XCBRawValue.array(foo_inputs),
+        ]
+    }
+}
+
+public struct BuildTargetPreparedForIndex: XCBProtocolMessage {
+    let targetGUID: String
+
+    public init(targetGUID: String) {
+        self.targetGUID = targetGUID
+    }
+
+    public func encode(_: XCBEncoder) throws -> XCBResponse {
+        return [
+            XCBRawValue.uint(24),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(109),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.string("BUILD_TARGET_PREPARED_FOR_INDEX"),
+            XCBRawValue.array([
+                XCBRawValue.string(self.targetGUID),
+                XCBRawValue.array([
+                    XCBRawValue.double(677604523.7527775),
+                ]),
+            ]),
+        ]
+    }
+}
+

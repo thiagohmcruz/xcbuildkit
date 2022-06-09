@@ -11,10 +11,111 @@ import XCBProtocol
 ///
 /// @param context is used to pass state around
 
+open class PlistConverter {
+    public struct PlistMimeType {
+        static let xmlPlist    = "text/x-apple-plist+xml"
+        static let binaryPlist = "application/x-apple-binary-plist"
+    }
+    
+    //// Visible Stuffs ////////////////////////////////////////////////////////
+    convenience init?(binaryData: Data, quiet: Bool = true) {
+        self.init(binaryData, format: .binaryFormat_v1_0, quiet: quiet)
+    }
+    
+    convenience init?(xml: String, quiet: Bool = true) {
+        guard let xmlData = xml.data(using: .utf8) else { return nil }
+        self.init(xmlData, format: .xmlFormat_v1_0, quiet: quiet)
+    }
+    
+    open func convertToXML() -> String? {
+        guard let xmlData = convert(to: .xmlFormat_v1_0) else { return nil }
+        return String.init(data: xmlData, encoding: .utf8)
+    }
+    
+    open func convertToBinary() -> Data? {
+        return convert(to: .binaryFormat_v1_0)
+    }
+    
+    
+    ////////////////////////////////////////////////////////////////////////////
+    //// Private ///////////////////////////////////////////////////////////////
+    private var plist: CFPropertyList?                                        //
+                                                                              //
+    private init?(_ data: Data, format: CFPropertyListFormat, quiet: Bool = true) {               //
+        var dataBytes = Array(data)                                           //
+        let plistCoreData = CFDataCreate(kCFAllocatorDefault,                 //
+                                         &dataBytes, dataBytes.count)         //
+                                                                              //
+        var error: Unmanaged<CFError>?                                        //
+        var inputFormat = format                                              //
+        let options = CFPropertyListMutabilityOptions                         //
+                            .mutableContainersAndLeaves.rawValue              //
+        plist = CFPropertyListCreateWithData(kCFAllocatorDefault,             //
+                                             plistCoreData,                   //
+                                             options,                         //
+                                             &inputFormat,                    //
+                                             &error)?.takeUnretainedValue()   //
+        guard plist != nil, nil == error else {                               //
+            if !quiet {                                                       //
+                print("Error on CFPropertyListCreateWithData : ",             //
+                  error!.takeUnretainedValue(), "Return nil")                 //
+            }                                                              //            
+            error?.release()                                                  //
+            return nil                                                        //
+        }                                                                     //
+        error?.release()                                                      //
+    }                                                                         //
+                                                                              //
+    private func convert(to format: CFPropertyListFormat) -> Data? {          //
+        var error: Unmanaged<CFError>?                                        //
+        let binary = CFPropertyListCreateData(kCFAllocatorDefault,            //
+                                              plist, format,                  //
+                                              0, // unused, set 0             //
+                                              &error)?.takeUnretainedValue()  //
+        let data = Data.init(bytes: CFDataGetBytePtr(binary),                 //
+                             count: CFDataGetLength(binary))                  //
+        error?.release()                                                      //
+        return data                                                           //
+    }                                                                         //
+                                                                              //
+    ////////////////////////////////////////////////////////////////////////////
+}
+
 public typealias XCBMessageHandler = (XCBInputStream, Data, Any?) -> Void
+
+public extension UInt64{
+    var uint8Array:[UInt8]{
+        var x = self.bigEndian
+        let data = Data(bytes: &x, count: MemoryLayout<UInt64>.size)
+        return data.map{$0}
+    }
+    
+    var uint8Array2:[UInt8]{
+        var bigEndian:UInt64 = self.bigEndian
+        let count = MemoryLayout<UInt64>.size
+        let bytePtr = withUnsafePointer(to: &bigEndian) {
+            $0.withMemoryRebound(to: UInt8.self, capacity: count) {
+                UnsafeBufferPointer(start: $0, count: count)
+            }
+        }
+        return Array(bytePtr)
+    }
+
+    var myuint8: [UInt8] {
+        var bigEndian = self.bigEndian
+        let count = MemoryLayout<UInt64>.size
+        let bytePtr = withUnsafePointer(to: &bigEndian) {
+            $0.withMemoryRebound(to: UInt8.self, capacity: count) {
+                UnsafeBufferPointer(start: $0, count: count)
+            }
+        }
+        return Array(bytePtr)
+    }
+}
 
 public class BKBuildService {
     let shouldDump: Bool
+    let shouldDumpHumanReadable: Bool
 
     // This needs to be serial in order to serialize the messages / prevent
     // crossing streams.
@@ -22,9 +123,74 @@ public class BKBuildService {
 
     public init() {
         self.shouldDump = CommandLine.arguments.contains("--dump")
+        self.shouldDumpHumanReadable = CommandLine.arguments.contains("--dump_h")
     }
 
     /// Starts a service on standard input
+
+    func parseBasicTypes(_ rawValue: XCBRawValue) -> Any {
+        switch rawValue {
+        case let .uint(value):
+            return value.uint8Array[value.uint8Array.count - 1]
+        case let .array(value):
+            return self.parseIterator(value.makeIterator())
+        case .extended(let type, let data):
+            return "extended(\(type), \(self.convertDataToString(data)))"
+        case let .map(value):
+            var dict: [String: Any] = [:]
+            for (k,v) in value {
+                dict["\(self.parseBasicTypes(k))"] = self.parseBasicTypes(v)
+            }
+            return "map(\(dict))"
+        case let .binary(value):
+            return "binary(\(self.convertDataToString(value)))"
+        default:
+            return String(describing: rawValue)
+        }
+    }
+
+    func convertDataToString(_ data: Data) -> String {
+        if let bplist = PlistConverter(binaryData: data)?.convertToXML() {
+            return "bplist(\(bplist))"
+        }
+        let bytes = [UInt8](data)
+        return self.convertBytesToString(bytes)
+    }
+
+    func convertBytesToString(_ bytes: [UInt8]) -> String {
+        return String(bytes: bytes, encoding: .utf8) ?? String(bytes: bytes, encoding: .ascii) ?? "error: failed to encode"
+    }
+
+    func parseIterator(_ theIterator: XCBInputStream) -> [Any] {
+        var iterator = theIterator
+        var accumulatedBytes: [UInt8] = []
+        var result: [Any] = []
+
+        while let next = iterator.next() {
+            let nextParsed = self.parseBasicTypes(next)
+            if let nextParsedAsBytes = nextParsed as? UInt8 {
+                accumulatedBytes.append(nextParsedAsBytes)
+            } else {
+                if accumulatedBytes.count > 0 {
+                    result.append("uint(\(convertBytesToString(accumulatedBytes)))")
+                    accumulatedBytes = []
+                }
+                result.append(nextParsed)
+            }
+        }
+
+        if accumulatedBytes.count > 0 {
+            result.append(convertBytesToString(accumulatedBytes))
+            accumulatedBytes = []
+        }
+
+        return result
+    }
+
+    func prettyPrintRecursively(_ iterator: XCBInputStream) {
+        parseIterator(iterator).forEach{ print($0) }
+    }
+
     public func start(messageHandler: @escaping XCBMessageHandler, context:
         Any?) {
         let file = FileHandle.standardInput
@@ -44,12 +210,15 @@ public class BKBuildService {
                 log("missing id")
             }
 
-            let resultItr = result.makeIterator()
+            var resultItr = result.makeIterator()
             if self.shouldDump {
                 // Dumps out the protocol
                 // useful for debuging, code gen'ing protocol messages, and
                 // upgrading Xcode versions
                 result.forEach{ $0.prettyPrint() }
+            } else if self.shouldDumpHumanReadable {
+                // Foo
+                self.prettyPrintRecursively(resultItr)
             } else {
                 messageHandler(resultItr, data, context)
             }

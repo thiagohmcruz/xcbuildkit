@@ -19,8 +19,8 @@ function replace() {
 }
 
 # This simply redirects stdin and stdout of Xcode's build service
-if [[ "${BUILD_SERVICE_REDIRECT:-false}" == "true" ]]; then
+# if [[ "${BUILD_SERVICE_REDIRECT:-false}" == "true" ]]; then
     redirect
-else
-    replace
-fi
+# else
+    # replace
+# fi

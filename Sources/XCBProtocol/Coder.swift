@@ -78,10 +78,14 @@ extension XCBDecoder {
                     return try CreateBuildRequest(input: minput)
                 } else if str == "BUILD_START" {
                     return try BuildStartRequest(input: minput)
-                } else if str == "INDEXING_INFO_REQUESTED" {
+                } 
+                else if str == "INDEXING_INFO_REQUESTED" {
                     return try IndexingInfoRequested(input: minput)
+                } 
+                else if str == "BUILD_DESCRIPTION_TARGET_INFO" {
+                    return try BuildDescriptionTargetInfo(input: minput)
                 }
-            default:
+            default:                
                 continue
             }
         }

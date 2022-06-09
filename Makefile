@@ -7,6 +7,9 @@ XCB=$(XCODE)/Contents/Developer/usr/bin/xcodebuild
 # The shim isn't used in production
 XCBBUILDSERVICE_PATH=$(PWD)/bazel-bin/BuildServiceShim/BuildServiceShim
 
+# Build service to use when running `test`, `debug_input`, `debug_output`, etc.
+BUILD_SERVICE=BazelBuildService
+
 .PHONY: build
 build:
 	$(BAZEL) build :* //BuildServiceShim
@@ -25,7 +28,7 @@ uninstall_bazel_progress_bar_support:
 DUMMY_XCODE_ARGS=-target CLI
 # DUMMY_XCODE_ARGS=-target iOSApp -sdk iphonesimulator
 test: build
-	$(BAZEL) build BSBuildService
+	$(BAZEL) build $(BUILD_SERVICE)
 	rm -rf /tmp/xcbuild.*
 	/usr/bin/env - TERM="$(TERM)" \
 		SHELL="$(SHELL)" \
@@ -41,12 +44,22 @@ test: build
 # Opens Xcode with the build service selected
 open_xcode: build
 	/usr/bin/env - TERM="$(TERM)"; \
+			SOURCEKIT_LOGGING=3 \
 	    export SHELL="$(SHELL)"; \
 	    export PATH="$(PATH)"; \
 	    export HOME="$(HOME)"; \
 	    export XCODE="$(XCODE)"; \
 	    export XCBBUILDSERVICE_PATH="$(XCBBUILDSERVICE_PATH)"; \
-             $(XCODE)/Contents/MacOS/Xcode
+						 $(XCODE)/Contents/MacOS/Xcode &> ~/Desktop/xcodeIndexing.log
+
+# open_xcode: build
+# 	/usr/bin/env - TERM="$(TERM)"; \
+# 	    export SHELL="$(SHELL)"; \
+# 	    export PATH="$(PATH)"; \
+# 	    export HOME="$(HOME)"; \
+# 	    export XCODE="$(XCODE)"; \
+# 	    export XCBBUILDSERVICE_PATH="$(XCBBUILDSERVICE_PATH)"; \
+# 						 $(XCODE)/Contents/MacOS/Xcode
 
 clean:
 	rm -rf /tmp/xcbuild.*
@@ -76,14 +89,24 @@ dump:
 	echo "print(repr(open('$(FILE)', 'rb').read()))" | python
 
 # Dumps the parsed stream
-debug_output:
+debug_output_raw:
 	@cat /tmp/xcbuild.out | \
-	    $(BAZEL) run BSBuildService -- --dump
+	    $(BAZEL) run $(BUILD_SERVICE) -- --dump
 
 # Dumps the parsed stream
-debug_input:
+debug_input_raw:
 	@cat /tmp/xcbuild.in | \
-	    $(BAZEL) run BSBuildService -- --dump
+	    $(BAZEL) run $(BUILD_SERVICE) -- --dump
+
+# Dumps the parsed stream
+debug_output_h:
+	@cat /tmp/xcbuild.out | \
+	    $(BAZEL) run $(BUILD_SERVICE) -- --dump_h
+
+# Dumps the parsed stream
+debug_input_h:
+	@cat /tmp/xcbuild.in | \
+	    $(BAZEL) run $(BUILD_SERVICE) -- --dump_h
 
 debug_output_python: build
 	@cat /tmp/xcbuild.out | utils/msgpack_dumper.py
