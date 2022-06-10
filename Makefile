@@ -7,6 +7,9 @@ XCB=$(XCODE)/Contents/Developer/usr/bin/xcodebuild
 # The shim isn't used in production
 XCBBUILDSERVICE_PATH=$(PWD)/bazel-bin/BuildServiceShim/BuildServiceShim
 
+# Build service to use when running `test`, `debug_input`, `debug_output`, etc.
+BUILD_SERVICE=BazelBuildService
+
 .PHONY: build
 build:
 	$(BAZEL) build :* //BuildServiceShim
@@ -25,7 +28,7 @@ uninstall_bazel_progress_bar_support:
 DUMMY_XCODE_ARGS=-target CLI
 # DUMMY_XCODE_ARGS=-target iOSApp -sdk iphonesimulator
 test: build
-	$(BAZEL) build BSBuildService
+	$(BAZEL) build $(BUILD_SERVICE)
 	rm -rf /tmp/xcbuild.*
 	/usr/bin/env - TERM="$(TERM)" \
 		SHELL="$(SHELL)" \
@@ -78,12 +81,12 @@ dump:
 # Dumps the parsed stream
 debug_output:
 	@cat /tmp/xcbuild.out | \
-	    $(BAZEL) run BSBuildService -- --dump
+	    $(BAZEL) run $(BUILD_SERVICE) -- --dump
 
 # Dumps the parsed stream
 debug_input:
 	@cat /tmp/xcbuild.in | \
-	    $(BAZEL) run BSBuildService -- --dump
+	    $(BAZEL) run $(BUILD_SERVICE) -- --dump
 
 debug_output_python: build
 	@cat /tmp/xcbuild.out | utils/msgpack_dumper.py
