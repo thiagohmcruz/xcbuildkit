@@ -223,7 +223,10 @@ enum BasicMessageHandler {
         return fakeData
     }
 
-    static let fakeTargetID = "a218dfee841498f4d1c86fb12905507da6b8608e8d79fa8addd22be62fee6ac8"
+    // xcbuildkit iOSApp
+    // static let fakeTargetID = "a218dfee841498f4d1c86fb12905507da6b8608e8d79fa8addd22be62fee6ac8"
+    // rules_ios App-XCHammer
+    static let fakeTargetID = "eb1d2e7ecb9a55be13946326c1fab37a0cabc05c1662dd9058afa744f013efb3"
 
     static func respond(input: XCBInputStream, data: Data, context: Any?) {
         let basicCtx = context as! BasicMessageContext
@@ -231,6 +234,8 @@ enum BasicMessageHandler {
         let bkservice = basicCtx.bkservice
         let decoder = XCBDecoder(input: input)
         let encoder = XCBEncoder(input: input)
+
+        // fooWrite(text: "\(decoder.decodeMessage() ?? nil)")
 
         if let msg = decoder.decodeMessage() {
             if let createSessionRequest = msg as? CreateSessionRequest {

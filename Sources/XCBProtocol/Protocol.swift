@@ -104,6 +104,8 @@ public struct IndexingInfoRequested: XCBProtocolMessage {
             switch next {
                 case let .uint(aff): 
                     bytes.append(UInt8(bitPattern: Int8(aff)))
+                // case let .string(foo):
+                //     bytes.append(UInt8(bitPattern: Int8(aff)))
                 default: 
                     print("nothing to do")
             }
