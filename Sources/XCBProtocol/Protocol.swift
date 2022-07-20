@@ -95,8 +95,85 @@ public struct BuildDescriptionTargetInfo: XCBProtocolMessage {
     public init(input _: XCBInputStream) throws {}
 }
 
+extension UInt64 {
+    var uint8: UInt8 {
+        var x = self.bigEndian
+        let data = Data(bytes: &x, count: MemoryLayout<UInt64>.size)
+        let mapping = data.map{$0}
+        // This is supposed to be used only when debugging input/output streams
+        // at the time of writing grabbing the last bit here was enough to compose sequences of bytes that can be encoded into `String`
+        //
+        // Grabbs the significant value here only from the mapping, which looks like this: [0, 0, 0, 0, 0, 0, 0, 105]
+        guard let last = mapping.last else {
+            print("warning: Failed to get last UInt8 from UInt64 mapping \(mapping)")
+            return 0
+        }
+        return last
+    }
+}
+
+extension Array where Element == UInt8 {
+    var readableString: String {
+        guard let bytesAsString = self.utf8String ?? self.asciiString else {
+            fatalError("Failed to encode bytes")
+        }
+        return bytesAsString
+    }
+
+    private var utf8String: String? {
+        return String(bytes: self, encoding: .utf8)
+    }
+
+    private var asciiString: String? {
+        return String(bytes: self, encoding: .ascii)
+    }
+}
+
 public struct IndexingInfoRequested: XCBProtocolMessage {
-    public init(input _: XCBInputStream) throws {}
+    public let filePath: String
+    public let bytes: [UInt8]
+    public let rawValues: [String]
+
+    public init(input fooInput: XCBInputStream) throws {
+        var foo = fooInput
+
+        var bytes: [UInt8] = []
+        var rawValues: [String] = []
+        while let next = foo.next() {
+            switch next {
+                case let .uint(value):
+                    bytes.append(value.uint8)
+                default:
+                    rawValues.append(String(describing: next))
+            }
+        }
+        // if let json = try JSONSerialization.jsonObject(with: Data(bytes), options: []) as? [String: Any] {
+        //     IndexingInfoRequested.fooWrite(text: "found json")
+        //     self.json = json
+        // } else {
+        //     self.json = [:]
+        //     IndexingInfoRequested.fooWrite(text: "did not find json")
+        // }        
+        self.rawValues = rawValues
+        self.bytes = bytes
+        self.filePath = bytes.readableString        
+    }
+
+    public static func fooWrite(text: String, append: Bool = false) {
+        if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let fileURL = dir.appendingPathComponent("foo.txt")
+            let data = text.data(using: String.Encoding.utf8)!
+            if FileManager.default.fileExists(atPath: fileURL.path) && append {
+                if let fileHandle = try? FileHandle(forWritingTo: fileURL) {
+                    fileHandle.seekToEndOfFile()
+                    fileHandle.write(data)
+                    fileHandle.closeFile()
+                }
+            } else {
+                try? data.write(to: fileURL, options: .atomicWrite)
+            }
+        }
+    }
 }
 
 /// Output "Response" messages
@@ -366,10 +443,12 @@ public struct BuildOperationEndedResponse: XCBProtocolMessage {
 public struct IndexingInfoReceivedResponse: XCBProtocolMessage {
     let targetID: String
     let data: Data?
+    let responseChannel: Int
 
-    public init(targetID: String = "", data: Data? = nil) {
+    public init(targetID: String = "", data: Data? = nil, responseChannel: Int) {
         self.targetID = targetID
         self.data = data
+        self.responseChannel = responseChannel
     }
 
     public func encode(_: XCBEncoder) throws -> XCBResponse {
@@ -379,7 +458,7 @@ public struct IndexingInfoReceivedResponse: XCBProtocolMessage {
         }
 
         return [
-            XCBRawValue.uint(26),
+            XCBRawValue.uint(UInt64(self.responseChannel)),
             XCBRawValue.uint(0),
             XCBRawValue.uint(0),
             XCBRawValue.uint(0),
@@ -406,7 +485,7 @@ public struct BuildTargetPreparedForIndex: XCBProtocolMessage {
 
     public func encode(_: XCBEncoder) throws -> XCBResponse {
         return [
-            XCBRawValue.uint(24),
+            XCBRawValue.uint(27),
             XCBRawValue.uint(0),
             XCBRawValue.uint(0),
             XCBRawValue.uint(0),
@@ -429,3 +508,28 @@ public struct BuildTargetPreparedForIndex: XCBProtocolMessage {
     }
 }
 
+public struct DocumentationInfoReceived: XCBProtocolMessage {
+    public init() {}
+    
+    public func encode(_: XCBEncoder) throws -> XCBResponse {
+        return [
+            XCBRawValue.uint(47),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(30),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.uint(0),
+            XCBRawValue.string("DOCUMENTATION_INFO_RECEIVED"),
+            XCBRawValue.array([
+                XCBRawValue.array([
+                ])
+            ])
+        ]
+    }
+}

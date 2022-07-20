@@ -41,9 +41,9 @@ enum BasicMessageHandler {
             <array>
                 <dict>
                     <key>outputFilePath</key>
-                    <string>/iOSApp.build/Debug/CLI.build/Objects-normal/x86_64/main.o</string>
+                    <string>/FooXCBKit.build/Debug-iphonesimulator/FooXCBKit.build/Objects-normal/x86_64/AppDelegate.o</string>
                     <key>sourceFilePath</key>
-                    <string>/Users/thiago/Development/xcbuildkit/iOSApp/CLI/main.m</string>
+                    <string>/Users/thiago/Desktop/FooXCBKit/FooXCBKit/FooXCBKit/AppDelegate.m</string>
                 </dict>
             </array>
         </plist>
@@ -58,8 +58,38 @@ enum BasicMessageHandler {
         return fakeData
     }
 
-    static let fakeTargetID = "a218dfee841498f4d1c86fb12905507da6b8608e8d79fa8addd22be62fee6ac8"
+    static let fakeTargetID = "331b048e25f370d7b433a2ac02b031474b7b4dd1a8f803262ad3ed1dbcecb10b"
 
+    static func fooWrite(text: String, append: Bool = false) {
+        if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let fileURL = dir.appendingPathComponent("foo.txt")
+            let data = text.data(using: String.Encoding.utf8)!
+            if FileManager.default.fileExists(atPath: fileURL.path) && append {
+                if let fileHandle = try? FileHandle(forWritingTo: fileURL) {
+                    fileHandle.seekToEndOfFile()
+                    fileHandle.write(data)
+                    fileHandle.closeFile()
+                }
+            } else {
+                try? data.write(to: fileURL, options: .atomicWrite)
+            }
+        }
+    }
+
+    public static var allBytes: [UInt8] = []
+    public static func matches(for regex: String, in text: String) -> [String] {
+        do {
+            let regex = try NSRegularExpression(pattern: regex)
+            let results = regex.matches(in: text,
+                                        range: NSRange(text.startIndex..., in: text))
+            return results.map {
+                String(text[Range($0.range, in: text)!])
+            }
+        } catch let error {
+            print("invalid regex: \(error.localizedDescription)")
+            return []
+        }
+    }
     /// Proxying response handler
     /// Every message is written to the XCBBuildService
     /// This simply injects Progress messages from the BEP
@@ -71,22 +101,99 @@ enum BasicMessageHandler {
         let encoder = XCBEncoder(input: input)
 
         if let msg = decoder.decodeMessage() {
+            // let indexingMsg = msg as? IndexingInfoRequested
+
             if let createSessionRequest = msg as? CreateSessionRequest {
                 xcbbuildService.startIfNecessary(xcode: createSessionRequest.xcode)
-            } else if msg is BuildStartRequest {
+            }
+            else if msg is BuildStartRequest {
                 do {
                     let bepPath = "/tmp/bep.bep"
                     try startStream(bepPath: bepPath, startBuildInput: input, bkservice: bkservice)
                 } catch {
                     fatalError("Failed to init stream" + error.localizedDescription)
                 }
-            } else if msg is IndexingInfoRequested {
-                let message = IndexingInfoReceivedResponse(targetID: fakeTargetID, data: fakeIndexingInfoRes())
-                if let responseData = try? message.encode(encoder) {
+
+                // let message = BuildProgressUpdatedResponse()
+                // if let responseData = try? message.encode(encoder) {
+                //      bkservice.write(responseData)
+                // }
+            }
+            else if let msgFoo = msg as? IndexingInfoRequested {
+                // allBytes += data.bytes
+                
+                var responseChannel: Int = 16
+                if data.bytes.readableString.contains("responseChannel") {
+                    let aff = matches(for: "responseChannel\":.*?,", in: data.bytes.readableString).first!.components(separatedBy: ":")[1].components(separatedBy: ",")[0]
+                    responseChannel = Int(aff)!
+                    // fooWrite(text: "\n\n------------responseChannel\n\n\(Int(aff)!)\n\n------------\n\n", append: false)
+                }
+                // fooWrite(text: "\n\n------------rawValues\n\n\(msgFoo.rawValues)\n\n------------\n\n", append: true)
+                // allBytes += msgFoo.bytes
+                // fooWrite(text: "\n\n------------allBytes\n\n\(allBytes.count)\n\n------------\n\n", append: true)
+                // // fooWrite(text: "\n\n------------\n\n\(msgFoo.bytes)\n\n------------\n\n", append: true)
+
+                // if let json = try? JSONSerialization.jsonObject(with: Data(allBytes), options: []) as? [String: Any] {
+                //     fooWrite(text: "\n\n------------\n\n\(json)\n\n------------\n\n", append: true)
+                // } else {
+                //     fooWrite(text: "\n\n------------\n\n\(allBytes.readableString)\n\n------------\n\n", append: true)
+                // }
+                // fooWrite(text: "\n\n------------\n\n\(fooIndexingMsg)\n\n------------\n\n", append: false)
+                // if !fooIndexingMsg.contains("\"outputPathOnly\":true") {
+                // if true {
+                // if false {
+                    // fooWrite(text: "\n\n------------\n\n\(fooIndexingMsg)\n\n------------\n\n", append: true)
+
+
+                    let message2 = IndexingInfoReceivedResponse(targetID: fakeTargetID, data: fakeIndexingInfoRes(), responseChannel: responseChannel)
+                    if let responseData = try? message2.encode(encoder) {
+                        bkservice.write(responseData)
+                    }
+                    // let message = IndexingInfoReceivedResponse(targetID: fakeTargetID)
+                    // if let responseData = try? message.encode(encoder) {
+                    //     bkservice.write(responseData)
+                    // }
+                    // let message2 = IndexingInfoReceivedResponse(targetID: fakeTargetID, data: fakeIndexingInfoRes(arch: "arm64"))
+                    // if let responseData = try? message2.encode(encoder) {
+                    //     bkservice.write(responseData)
+                    // }
+                // }
+
+            }
+            else if msg is BuildDescriptionTargetInfo {
+                // let message3 = BuildTargetPreparedForIndex(targetGUID: fakeTargetID)
+                // if let responseData = try? message3.encode(encoder) {
+                //     bkservice.write(responseData)
+                // }
+                
+                let message4 = DocumentationInfoReceived()
+                if let responseData = try? message4.encode(encoder) {
                     bkservice.write(responseData)
                 }
-            }
-        }
+
+                let message5 = BuildTargetPreparedForIndex(targetGUID: fakeTargetID)
+                if let responseData = try? message5.encode(encoder) {
+                    bkservice.write(responseData)
+                }
+                
+                // var responseChannel: Int = 16
+                // if data.bytes.readableString.contains("responseChannel") {
+                //     let aff = matches(for: "responseChannel\":.*?,", in: data.bytes.readableString).first!.components(separatedBy: ":")[1].components(separatedBy: ",")[0]
+                //     responseChannel = Int(aff)!
+                // }
+                // let message = IndexingInfoReceivedResponse(targetID: fakeTargetID, data: fakeIndexingInfoRes(), responseChannel: responseChannel)
+                // if let responseData = try? message.encode(encoder) {
+                //     bkservice.write(responseData)
+                // }
+                
+                // let message2 = IndexingInfoReceivedResponse(targetID: fakeTargetID, data: fakeIndexingInfoRes(arch: "arm64"))
+                // if let responseData = try? message2.encode(encoder) {
+                //     bkservice.write(responseData)
+                // }                          
+            }       
+
+        }        
+        fooWrite(text: "\n\n------------all\n\n\(data.bytes.readableString)\n\n------------\n\n", append: true)
         xcbbuildService.write(data)
     }
 }

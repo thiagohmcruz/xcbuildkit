@@ -64,7 +64,7 @@ class PrettyPrinter {
     }
 }
 
-extension Data {
+public extension Data {
     var readableString: String {
         if let bplist = self.bplist {
             return "bplist(\(bplist))"
@@ -76,12 +76,12 @@ extension Data {
         return BPlistConverter(binaryData: self)?.convertToXML()
     }
 
-    private var bytes: [UInt8] {
+    public var bytes: [UInt8] {
         return [UInt8](self)
     }
 }
 
-extension Array where Element == UInt8 {
+public extension Array where Element == UInt8 {
     var readableString: String {
         guard let bytesAsString = self.utf8String ?? self.asciiString else {
             fatalError("Failed to encode bytes")

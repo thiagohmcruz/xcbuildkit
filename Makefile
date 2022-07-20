@@ -110,3 +110,19 @@ debug_input_h:
 debug_output_python: build
 	@cat /tmp/xcbuild.out | utils/msgpack_dumper.py
 
+foo:
+	mkdir -p /tmp/xcbuildkit-debug \
+	&& \
+	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang \
+	-isysroot \
+	/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator15.4.sdk \
+	-index-store-path \
+	/tmp/xcbuildkit-debug \
+	-c \
+	iOSApp/iOSApp/main.m \
+	-o \
+	/tmp/xcbuildkit-debug/main.o \
+	&& \
+	echo "\n\nFOO RESULTS IN /tmp/xcbuildkit-debug\n" \
+	&& \
+	ls -lah /tmp/xcbuildkit-debug

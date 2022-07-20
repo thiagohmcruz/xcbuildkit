@@ -18,9 +18,9 @@ function replace() {
     tee  /tmp/xcbuild.in | $SERVICE | tee /tmp/xcbuild.out
 }
 
-# This simply redirects stdin and stdout of Xcode's build service
-if [[ "${BUILD_SERVICE_REDIRECT:-false}" == "true" ]]; then
-    redirect
-else
+# # This simply redirects stdin and stdout of Xcode's build service
+# if [[ "${BUILD_SERVICE_REDIRECT:-false}" == "true" ]]; then
+    # redirect
+# else
     replace
-fi
+# fi
